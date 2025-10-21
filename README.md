@@ -1,6 +1,6 @@
 # PredictFlow 
 
-PredictFlow – The Process-Aware, Predictive Open Source BPMS
+PredictFlow – The Process-Aware, Predictive Open Source adjunct-BPMS 
 
 I have always felt, as a process practitioner, that most BPMS platforms fall short of their real purpose. They run workflows from task to task — but they rarely understand them.
 
@@ -14,6 +14,23 @@ This is probably the first BPMS that looks to improve processes proactively, and
 Based on my learnings as a process consultant.
 
 In the current state, PredictFlow works as an adjunct layer to existing BPMSs such as Camunda.
+
+It provides answers to questions, such as (but not limited too, I am evolving the layer as we prgress) :
+
+“Which step is most likely to fail?”
+“Where is data confidence lowest?”
+“Which branch is the real critical path?”
+“Can I predict future bottlenecks?”
+
+What it adds to a BPMS : 
+
+| Traditional BPMS (Camunda / Pega / Appian) | PredictFlow Layer                                           |
+| ------------------------------------------ | ----------------------------------------------------------- |
+| Runs workflows (task → task)               | Analyzes workflows (risk, confidence, embedding similarity) |
+| Tracks completion & status                 | Measures reliability & predictive outcomes                  |
+| Uses BPMN models                           | Works with YAML / JSON models or external API               |
+| Stores process logs                        | Generates quantifiable metrics & insights                   |
+| Focus: execution                           | Focus: awareness and continuous improvement                 |
 
 
 anantdhavale@gmail.com
