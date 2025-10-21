@@ -1,7 +1,11 @@
 import importlib
 import time
 import traceback
+from pathlib import Path
 from typing import Dict, Any
+
+# NEW: Auto-generator import
+from predictflow.engine.autogen import generate_actions_from_yaml
 
 
 class Executor:
@@ -11,13 +15,24 @@ class Executor:
     - Runs workflow steps sequentially
     - Automatically computes Confidence + FMEA + Embedding vectors
     - Builds Critical Path (based on risk/confidence)
+    - Auto-generates missing action stubs from YAML
     """
 
-    def __init__(self, workflow: Dict[str, Any]):
+    def __init__(self, workflow: Dict[str, Any], yaml_path: str = None, auto_generate: bool = True):
         self.workflow = workflow
+        self.yaml_path = yaml_path
+        self.auto_generate = auto_generate
         self.context = {}
         self.metrics = {}  # stores RPN, confidence, embedding per step
         self.hooks = {"before_step": [], "after_step": []}
+
+        # Auto-generate missing actions from YAML if enabled
+        if self.auto_generate and self.yaml_path:
+            try:
+                print("Checking and generating missing actions from YAML...")
+                generate_actions_from_yaml(self.yaml_path)
+            except Exception as e:
+                print(f"Warning: Auto-generation failed: {e}")
 
     # -------------------------
     # Main Execution Loop
@@ -27,10 +42,10 @@ class Executor:
 
         for step in self.workflow.get("steps", []):
             step_id = step.get("id")
-            action_name = step.get("action")
-            print(f"\n Executing step: {step_id} ({action_name})")
+            action_name = step.get("action") or step_id
+            print(f"\nExecuting step: {step_id} ({action_name})")
 
-            # Hooks before
+            # Run pre-step hooks
             self._run_hooks("before_step", step)
 
             try:
@@ -58,7 +73,7 @@ class Executor:
             self._run_hooks("after_step", step)
             time.sleep(0.3)
 
-        print("\ Workflow completed.")
+        print("\nWorkflow completed.")
         self._show_summary()
         self._compute_critical_path()
 
@@ -78,7 +93,7 @@ class Executor:
             print(f"No run() function in {module_name}")
             return None
 
-        print(f"⚙️  Running action: {action_name}")
+        print(f"Running action: {action_name}")
         return action_module.run(self.context, step)
 
     # -------------------------
@@ -107,7 +122,7 @@ class Executor:
             return 0.5
 
     def _compute_embedding(self, step):
-        """Compute a vector embedding for the step description (for semantic clustering)"""
+        """Compute vector embedding for the step description (semantic similarity)"""
         try:
             from predictflow.confidence.embedding import get_vector
             desc = step.get("description", "")
@@ -139,7 +154,7 @@ class Executor:
     # Reporting
     # -------------------------
     def _show_summary(self):
-        print("\Workflow Metrics Summary:")
+        print("\nWorkflow Metrics Summary:")
         for step, data in self.metrics.items():
             rpn = data.get("rpn", "-")
             conf = data.get("confidence", "-")
@@ -157,4 +172,4 @@ class Executor:
             reverse=True,
         )
         critical = [s[0] for s in sorted_steps[:3]]
-        print(f"\n Critical Path (highest risk): {' → '.join(critical)}")
+        print(f"\nCritical Path (highest risk): {' → '.join(critical)}")
