@@ -23,12 +23,12 @@ class Executor:
     # Main Execution Loop
     # -------------------------
     def run(self):
-        print(f"🔷 Running workflow: {self.workflow.get('name', 'Unnamed Workflow')}")
+        print(f"Running workflow: {self.workflow.get('name', 'Unnamed Workflow')}")
 
         for step in self.workflow.get("steps", []):
             step_id = step.get("id")
             action_name = step.get("action")
-            print(f"\n➡️  Executing step: {step_id} ({action_name})")
+            print(f"\n Executing step: {step_id} ({action_name})")
 
             # Hooks before
             self._run_hooks("before_step", step)
@@ -50,7 +50,7 @@ class Executor:
                 }
 
             except Exception as e:
-                print(f"💥 Error in step {step_id}: {e}")
+                print(f"Error in step {step_id}: {e}")
                 traceback.print_exc()
                 self.context["last_error"] = str(e)
                 break
@@ -58,7 +58,7 @@ class Executor:
             self._run_hooks("after_step", step)
             time.sleep(0.3)
 
-        print("\n✅ Workflow completed.")
+        print("\ Workflow completed.")
         self._show_summary()
         self._compute_critical_path()
 
@@ -71,11 +71,11 @@ class Executor:
             module_name = f"predictflow.actions.{action_name}"
             action_module = importlib.import_module(module_name)
         except ModuleNotFoundError:
-            print(f"⚠️  Action not found: {module_name}")
+            print(f"Action not found: {module_name}")
             return None
 
         if not hasattr(action_module, "run"):
-            print(f"⚠️  No run() function in {module_name}")
+            print(f"No run() function in {module_name}")
             return None
 
         print(f"⚙️  Running action: {action_name}")
@@ -89,10 +89,10 @@ class Executor:
         try:
             from predictflow.fmea.analyzer import compute_rpn
             rpn = compute_rpn(step)
-            print(f"🧮 FMEA Risk (RPN): {rpn}")
+            print(f"FMEA Risk (RPN): {rpn}")
             return rpn
         except Exception as e:
-            print(f"⚠️ FMEA error: {e}")
+            print(f"FMEA error: {e}")
             return 0
 
     def _compute_confidence(self, step):
@@ -100,10 +100,10 @@ class Executor:
         try:
             from predictflow.confidence.scorer import compute_confidence
             conf = compute_confidence(step)
-            print(f"🤖 Confidence Score: {conf}")
+            print(f"Confidence Score: {conf}")
             return conf
         except Exception as e:
-            print(f"⚠️ Confidence error: {e}")
+            print(f"Confidence error: {e}")
             return 0.5
 
     def _compute_embedding(self, step):
@@ -114,10 +114,10 @@ class Executor:
             if not desc:
                 return None
             vector = get_vector(desc)
-            print(f"🧠 Embedding computed for '{step.get('id')}' ({len(vector)} dims)")
+            print(f"Embedding computed for '{step.get('id')}' ({len(vector)} dims)")
             return vector
         except Exception as e:
-            print(f"⚠️ Embedding error: {e}")
+            print(f"Embedding error: {e}")
             return None
 
     # -------------------------
@@ -133,13 +133,13 @@ class Executor:
             try:
                 hook(self.context, step)
             except Exception as e:
-                print(f"⚠️ Hook '{when}' failed: {e}")
+                print(f"Hook '{when}' failed: {e}")
 
     # -------------------------
     # Reporting
     # -------------------------
     def _show_summary(self):
-        print("\n📊 Workflow Metrics Summary:")
+        print("\Workflow Metrics Summary:")
         for step, data in self.metrics.items():
             rpn = data.get("rpn", "-")
             conf = data.get("confidence", "-")
@@ -148,7 +148,7 @@ class Executor:
     def _compute_critical_path(self):
         """Find steps with highest RPN or lowest confidence."""
         if not self.metrics:
-            print("⚠️ No metrics available for critical path analysis.")
+            print("No metrics available for critical path analysis.")
             return
 
         sorted_steps = sorted(
