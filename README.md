@@ -30,7 +30,7 @@ __
 
 PredictFlow is distributed under a **Hybrid Open License**.
 
-- ✅ Free for personal and educational use with copyright attribution.  
-- 🚫 Professional or commercial use requires permission from the author  
+- ✅ Free for personal and educational use with copyright attribution.  If you wish to deploy or integrate it commercially, please contact Anant for permissions.
+- 🚫 Professional or commercial use requires permission from the author.  
 
 See the [LICENSE.md](./LICENSE.md) file for details or contact Anant Dhavale for licensing discussions.
