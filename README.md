@@ -13,6 +13,8 @@ PredictFlow is built for simplicity — yet flexible enough to support FMEA risk
 This is probably the first BPMS that looks to improve processes proactively, and does not simply run them. 
 Based on my learnings as a process consultant.
 
+In the current state, PredictFlow works as an adjunct layer to existing BPMSs such as Camunda.
+
 
 anantdhavale@gmail.com
 
