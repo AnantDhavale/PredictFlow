@@ -34,6 +34,8 @@ What it adds to a BPMS :
 | Stores process logs                        | Generates quantifiable metrics & insights                   |
 | Focus: execution                           | Focus: awareness and continuous improvement                 |
 
+BUT !! The big upgrade I want to do (from traditional BPMS), is to convert YAMLS into Actions through the layer ( unlike the redundant taks in traditional BPMS), so the flow looks like:
+YAML → Executable Actions → Intelligent Runtime
 
 anantdhavale@gmail.com
 
