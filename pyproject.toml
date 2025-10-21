@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "predictflow"
+version = "0.1.0"
+description = "A lightweight workflow engine with predictive hooks (FMEA + NLP confidence)."
+authors = [{name = "Anant (Peter)", email = "you@example.com"}]
+license = {text = "MIT"}
+dependencies = ["pyyaml"]
+
+[project.scripts]
+predictflow = "predictflow.cli.main:main"
