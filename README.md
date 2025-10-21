@@ -2,6 +2,8 @@
 
 PredictFlow – The Process-Aware, Predictive Open Source adjunct-BPMS 
 
+(A lightweight intelligence layer that brings prediction, confidence, and awareness to any workflow engine.)
+
 I have always felt, as a process practitioner, that most BPMS platforms fall short of their real purpose. They run workflows from task to task — but they rarely understand them.
 
 PredictFlow is my small effort to change that: a lightweight, open-source workflow engine that makes business processes proactive, intelligent, and quantifiable.
