@@ -50,8 +50,7 @@ PredictFlow runs entirely on your local machine.
 No data is uploaded or shared externally.
 If you deploy this on a public server, you are responsible for managing resource costs.
 
-__
-
+_
 
 
 ## 📄 License
