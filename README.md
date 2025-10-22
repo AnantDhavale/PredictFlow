@@ -37,6 +37,8 @@ What it adds to a BPMS :
 BUT !! The big upgrade I want to do (from traditional BPMS), is to convert YAMLS into Actions through the layer ( unlike the redundant taks in traditional BPMS), so the flow looks like:
 YAML → Executable Actions → Intelligent Runtime.
 
+Here's a simple roadmap for PredictFlow:
+
 Phase 1 — Intelligence Layer (Current state)
 Phase 2 — Light Orchestrator Mode (Scheduling, event-triggers)
 Phase 3 — Full BPMS Mode (BPMN UI and interface)
