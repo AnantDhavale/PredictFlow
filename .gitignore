@@ -1,6 +1,84 @@
-venv/
+# --- Python build & cache ---
 __pycache__/
-*.pyc
-.DS_Store
-.env
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
 
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+ENV/
+
+# --- macOS junk ---
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- IDE/editor files ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Local environment / secrets ---
+.env
+*.env
+.env.*
+
+# --- SQLite data ---
+predictflow/data/
+*.db
+
+# --- Logs & temporary files ---
+*.log
+*.tmp
+*.bak
+*.old
+*.orig
+
+# --- Auto-generated stubs (optional) ---
+predictflow/actions/*.py
+
+# --- Streamlit & FastAPI runtime files ---
+.streamlit/
+__pycache__/
+*.sqlite3
+*.pid
+
+# --- Compiled C extensions ---
+*.so
+
+# --- Distribution / packaging ---
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+
+# --- Unit test / coverage reports ---
+.coverage
+htmlcov/
+.cache/
+pytest_cache/
+.tox/
+.nox/
+.mypy_cache/
+.pytest_cache/
+.pyre/
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+
+# --- Local test workflows / examples ---
+predictflow/examples/*.bpmn
+predictflow/examples/*.yaml
+
+# --- Backup or temp ---
+*~
+*.bak
+*.tmp
