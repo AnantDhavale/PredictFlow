@@ -55,4 +55,4 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 
 ---
 
-*PredictFlow – a lightweight workflow engine with predictive intelligence.*
+*PredictFlow – a lightweight workflow engine with predictive intelligence.*.
