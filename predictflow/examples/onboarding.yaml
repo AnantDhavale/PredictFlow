@@ -1,7 +1,0 @@
-workflow:
-  id: onboarding
-  steps:
-    - id: step1
-      action: say_hello
-    - id: step2
-      action: verify_identity
