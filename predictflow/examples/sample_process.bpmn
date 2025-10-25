@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             id="Definitions_1"
+             targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <process id="EmployeeOnboarding" name="Employee Onboarding Process" isExecutable="true">
+    <startEvent id="StartEvent_1" name="Start Onboarding" />
+    <sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_VerifyDocs" />
+
+    <task id="Task_VerifyDocs" name="Verify Documents" />
+    <sequenceFlow id="Flow_2" sourceRef="Task_VerifyDocs" targetRef="Task_CreateAccount" />
+
+    <task id="Task_CreateAccount" name="Create User Account" />
+    <sequenceFlow id="Flow_3" sourceRef="Task_CreateAccount" targetRef="Task_ScheduleOrientation" />
+
+    <task id="Task_ScheduleOrientation" name="Schedule Orientation" />
+    <sequenceFlow id="Flow_4" sourceRef="Task_ScheduleOrientation" targetRef="EndEvent_1" />
+
+    <endEvent id="EndEvent_1" name="Onboarding Complete" />
+  </process>
+</definitions>

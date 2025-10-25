@@ -1,0 +1,14 @@
+name: "AutoGen Test Workflow"
+
+steps:
+  - id: step_alpha
+    action: step_alpha
+    description: "First test action – should auto-generate."
+
+  - id: step_beta
+    action: step_beta
+    description: "Second test action – should also be auto-created."
+
+  - id: step_gamma
+    action: step_gamma
+    description: "Final step to verify chain execution."
