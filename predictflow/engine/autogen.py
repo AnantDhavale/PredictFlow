@@ -8,23 +8,10 @@ ACTIONS_PATH = Path(__file__).resolve().parent.parent / "actions"
 
 def generate_actions_from_yaml(file_path: str):
     """
-    Parses a YAML or BPMN workflow file and generates corresponding Python action stubs
-    under the predictflow/actions/ directory.
-
-    - For YAML:
-        Reads workflow['steps'] and creates Python stubs for each action.
-    - For BPMN:
-        Extracts <task> and <event> IDs from the XML and creates corresponding stubs.
-
-    Example (YAML Step):
-      id: collect_data
-      description: Gather quarterly revenue
-      action: collect_data
-
-      → creates predictflow/actions/collect_data.py
+    ✅ SECURITY HARDENED: Generate action stubs with validation
     """
     if not os.path.exists(file_path):
-        print(f"[PredictFlow] Autogen skipped — file not found: {file_path}")
+        print(f"[PredictFlow] Autogen skipped – file not found: {file_path}")
         return
 
     with open(file_path, "r") as f:
@@ -33,20 +20,16 @@ def generate_actions_from_yaml(file_path: str):
     os.makedirs(ACTIONS_PATH, exist_ok=True)
     action_names = []
 
-    # --- Detect format ---
     is_bpmn = "<definitions" in content and "</definitions>" in content
 
     if is_bpmn:
-        print("[PredictFlow] Detected BPMN — extracting task IDs for action generation...")
-        # Extract all task/event IDs from BPMN XML
+        print("[PredictFlow] Detected BPMN – extracting task IDs for action generation...")
         ids = re.findall(r'id="([A-Za-z0-9_]+)"', content)
         for item in ids:
-            # Ignore flow lines and diagram definitions
             if item.lower().startswith("flow"):
                 continue
             action_names.append(item)
     else:
-        # --- YAML workflow ---
         try:
             workflow = yaml.safe_load(content)
             steps = workflow.get("steps", []) if isinstance(workflow, dict) else []
@@ -62,13 +45,38 @@ def generate_actions_from_yaml(file_path: str):
             print(f"Warning: Could not parse YAML for autogen: {e}")
             return
 
-    # --- Create stub files ---
+    # ✅ SECURITY FIX: Validate action names
     for action_name in sorted(set(action_names)):
         if not action_name:
             continue
 
+        # Validate: only alphanumeric, underscore, hyphen
+        if not re.match(r'^[a-zA-Z0-9_-]+$', action_name):
+            print(f"❌ Skipping invalid action name: {action_name}")
+            continue
+        
+        # Prevent path traversal
+        if '/' in action_name or '\\' in action_name or '..' in action_name:
+            print(f"❌ Skipping action with path characters: {action_name}")
+            continue
+        
+        # Length limit
+        if len(action_name) > 100:
+            print(f"❌ Action name too long: {action_name}")
+            continue
+
         filename = f"{action_name}.py"
         filepath = ACTIONS_PATH / filename
+        
+        # ✅ Verify filepath is actually inside ACTIONS_PATH
+        try:
+            filepath = filepath.resolve()
+            if not str(filepath).startswith(str(ACTIONS_PATH.resolve())):
+                print(f"❌ Path traversal attempt blocked: {action_name}")
+                continue
+        except Exception as e:
+            print(f"❌ Invalid path for action {action_name}: {e}")
+            continue
 
         if filepath.exists():
             print(f"Action '{action_name}' already exists. Skipping.")
@@ -85,10 +93,12 @@ def generate_actions_from_yaml(file_path: str):
     return {{"status": "success"}}
 '''
 
-        with open(filepath, "w") as f:
-            f.write(content)
-
-        print(f"Created action file: {filepath}")
+        try:
+            with open(filepath, "w") as f:
+                f.write(content)
+            print(f"✅ Created action file: {filepath}")
+        except Exception as e:
+            print(f"❌ Failed to create action {action_name}: {e}")
 
     print("Action generation complete.")
 
