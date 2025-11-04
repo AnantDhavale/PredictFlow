@@ -1,10 +1,73 @@
-import xml.etree.ElementTree as ET
+"""
+Secure BPMN parser for PredictFlow.
+
+This parser intentionally defends against XML External Entity (XXE) attacks by:
+ - Preferring defusedxml.ElementTree when available.
+ - Rejecting XML input that contains DOCTYPE or ENTITY declarations when defusedxml is not present.
+ - Avoiding any usage of XML features that resolve external resources.
+
+Returns the same structure as the original parser:
+{
+  "name": str,
+  "steps": [...],
+  "flows": [...],
+  "start_ids": [...],
+  "gateways": {...},
+  "participants": [...],
+  "lanes": {...},
+  "message_flows": [...]
+}
+"""
+import logging
+import re
 from typing import Dict, Any, List
+
+logger = logging.getLogger(__name__)
+
+# Try to use defusedxml for safety if installed
+try:
+    import defusedxml.ElementTree as ET  # type: ignore
+    _USING_DEFUSED = True
+    logger.debug("Using defusedxml.ElementTree for XML parsing (preferred).")
+except Exception:
+    # fallback to stdlib but we'll validate content before parsing to mitigate XXE
+    import xml.etree.ElementTree as ET  # type: ignore
+    _USING_DEFUSED = False
+    logger.debug("defusedxml not available — using xml.etree with pre-parse validation.")
 
 NS = {'bpmn': 'http://www.omg.org/spec/BPMN/20100524/MODEL'}
 
 def _text(el):
     return (el.text or '').strip() if el is not None else ""
+
+# Patterns that indicate presence of DTD or external entity declarations
+_DOCTYPE_ENTITY_RE = re.compile(r'<!DOCTYPE|<!ENTITY|SYSTEM\s+["\']|PUBLIC\s+["\']', re.IGNORECASE)
+
+def _load_xml_tree_safe(file_path: str):
+    """
+    Safely load an XML tree from file_path.
+    - If defusedxml is available, use ET.parse directly (it blocks dangerous constructs).
+    - Otherwise, read the file as text and reject if DTD/ENTITY declarations are present.
+    """
+    if _USING_DEFUSED:
+        # defusedxml.ElementTree.parse raises if dangerous constructs are present
+        return ET.parse(file_path)
+
+    # Fallback: read raw text and check for suspicious constructs before parsing
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    if _DOCTYPE_ENTITY_RE.search(content):
+        logger.warning("Rejected BPMN file due to presence of DOCTYPE/ENTITY declarations (possible XXE attempt).")
+        raise ValueError("BPMN file contains DOCTYPE/ENTITY declarations which are disallowed for security reasons.")
+
+    # No suspicious constructs found — parse using stdlib ElementTree
+    # Use fromstring to avoid some parser behaviors; parse() could also be used here safely
+    try:
+        return ET.ElementTree(ET.fromstring(content))
+    except Exception as e:
+        logger.exception("Failed to parse BPMN XML.")
+        raise
 
 def parse_bpmn(file_path: str) -> Dict[str, Any]:
     """
@@ -16,14 +79,14 @@ def parse_bpmn(file_path: str) -> Dict[str, Any]:
         "steps": [ {id, type, action, description, lane, attachedTo, cancelActivity, variant, timer} ],
         "flows": [ {id, sourceRef, targetRef, name, condition, isDefault} ],
         "start_ids": [stepId, ...],
-        "gateways": {gwId: {"type": "exclusiveGateway|parallelGateway|inclusiveGateway|eventBasedGateway"}},
+        "gateways": {gwId: {"type": "exclusiveGateway|parallelGateway|..."}},
         "participants": [{id,name,processRef}],
         "lanes": {laneId: {"name":..., "flowNodeRefs":[ids...] }},
         "message_flows": [ {id, sourceRef, targetRef, name} ]
       }
     """
-    print(f"[PredictFlow] Parsing BPMN file: {file_path}")
-    tree = ET.parse(file_path)
+    logger.info(f"[PredictFlow] Parsing BPMN file: {file_path}")
+    tree = _load_xml_tree_safe(file_path)
     root = tree.getroot()
 
     # participants (pools)
@@ -67,7 +130,7 @@ def parse_bpmn(file_path: str) -> Dict[str, Any]:
 
     def lane_of(node_id: str):
         for lid, meta in lanes.items():
-            if node_id in meta["flowNodeRefs"]:
+            if node_id in (meta.get("flowNodeRefs") or []):
                 return lid
         return None
 
