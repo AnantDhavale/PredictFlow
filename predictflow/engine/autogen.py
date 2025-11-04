@@ -6,20 +6,48 @@ from pathlib import Path
 ACTIONS_PATH = Path(__file__).resolve().parent.parent / "actions"
 
 
+def _sanitize_action_name(name: str) -> str:
+    """
+    Clean and validate an action name to prevent path traversal or unsafe file writes.
+    Returns None if invalid.
+    """
+    if not name or not isinstance(name, str):
+        return None
+
+    # Remove any leading/trailing whitespace
+    name = name.strip()
+
+    # Disallow dangerous patterns (slashes, traversal, etc.)
+    if "/" in name or "\\" in name or ".." in name:
+        return None
+
+    # Restrict to alphanumeric, underscore, and hyphen
+    if not re.match(r'^[a-zA-Z0-9_-]+$', name):
+        return None
+
+    # Enforce reasonable length
+    if len(name) > 100:
+        return None
+
+    return name
+
+
 def generate_actions_from_yaml(file_path: str):
     """
-    ✅ SECURITY HARDENED: Generate action stubs with validation
+    ✅ SECURITY HARDENED: Generate action stubs safely from YAML or BPMN definitions.
+    Prevents arbitrary file writes by validating and sanitizing action names.
     """
     if not os.path.exists(file_path):
         print(f"[PredictFlow] Autogen skipped – file not found: {file_path}")
         return
 
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     os.makedirs(ACTIONS_PATH, exist_ok=True)
     action_names = []
 
+    # Detect BPMN vs YAML
     is_bpmn = "<definitions" in content and "</definitions>" in content
 
     if is_bpmn:
@@ -45,60 +73,50 @@ def generate_actions_from_yaml(file_path: str):
             print(f"Warning: Could not parse YAML for autogen: {e}")
             return
 
-    # ✅ SECURITY FIX: Validate action names
-    for action_name in sorted(set(action_names)):
-        if not action_name:
+    # Process and validate each unique action
+    for raw_name in sorted(set(action_names)):
+        safe_name = _sanitize_action_name(raw_name)
+        if not safe_name:
+            print(f"❌ Skipping invalid or unsafe action name: {raw_name}")
             continue
 
-        # Validate: only alphanumeric, underscore, hyphen
-        if not re.match(r'^[a-zA-Z0-9_-]+$', action_name):
-            print(f"❌ Skipping invalid action name: {action_name}")
-            continue
-        
-        # Prevent path traversal
-        if '/' in action_name or '\\' in action_name or '..' in action_name:
-            print(f"❌ Skipping action with path characters: {action_name}")
-            continue
-        
-        # Length limit
-        if len(action_name) > 100:
-            print(f"❌ Action name too long: {action_name}")
-            continue
-
-        filename = f"{action_name}.py"
+        filename = f"{safe_name}.py"
         filepath = ACTIONS_PATH / filename
-        
-        # ✅ Verify filepath is actually inside ACTIONS_PATH
+
+        # Resolve canonical path and confirm it's under ACTIONS_PATH
         try:
-            filepath = filepath.resolve()
+            filepath = filepath.resolve(strict=False)
             if not str(filepath).startswith(str(ACTIONS_PATH.resolve())):
-                print(f"❌ Path traversal attempt blocked: {action_name}")
+                print(f"❌ Path traversal attempt blocked: {raw_name}")
                 continue
         except Exception as e:
-            print(f"❌ Invalid path for action {action_name}: {e}")
+            print(f"❌ Invalid path for action {raw_name}: {e}")
             continue
 
         if filepath.exists():
-            print(f"Action '{action_name}' already exists. Skipping.")
+            print(f"Action '{safe_name}' already exists. Skipping.")
             continue
 
-        description = f"Auto-generated action stub for '{action_name}'."
+        description = f"Auto-generated action stub for '{safe_name}'."
 
-        content = f'''def run(context, step):
+        file_content = f'''def run(context, step):
     """
     {description}
     """
-    print("Executing auto-generated action: {action_name}")
-    # TODO: Implement logic for '{action_name}'
+    print("Executing auto-generated action: {safe_name}")
+    # TODO: Implement logic for '{safe_name}'
     return {{"status": "success"}}
 '''
 
         try:
-            with open(filepath, "w") as f:
-                f.write(content)
+            # Safe file creation
+            with open(filepath, "x", encoding="utf-8") as f:
+                f.write(file_content)
             print(f"✅ Created action file: {filepath}")
+        except FileExistsError:
+            print(f"Action '{safe_name}' already exists (race condition). Skipping.")
         except Exception as e:
-            print(f"❌ Failed to create action {action_name}: {e}")
+            print(f"❌ Failed to create action '{safe_name}': {e}")
 
     print("Action generation complete.")
 
