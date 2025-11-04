@@ -11,7 +11,7 @@ Purpose:
 Security Features:
   ✅ Strict context type checking and key filtering
   ✅ Sanitized step names and bounded output size
-  ✅ Controlled file writing (path validation)
+  ✅ Controlled file writing (safe path validation)
   ✅ Exception-safe JSON serialization
   ✅ No arbitrary file system access or code execution
 """
@@ -20,7 +20,7 @@ import json
 import os
 import re
 import logging
-from typing import Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,7 @@ class FMEAReport:
     Collects, sanitizes, and exports FMEA results post workflow execution.
     """
 
-    # Output limits to prevent DoS or log flooding
-    MAX_STEPS = 5000
+    MAX_STEPS = 5000  # prevent DoS or massive log flooding
     MAX_FILENAME_LEN = 100
 
     def __init__(self, context: Dict[str, Any]):
@@ -64,6 +63,8 @@ class FMEAReport:
             severity = self.context.get(f"{step_name}_severity")
             occurrence = self.context.get(f"{step_name}_occurrence")
             detection = self.context.get(f"{step_name}_detection")
+            normalized = self.context.get(f"{step_name}_normalized_rpn")
+            calibrated = self.context.get(f"{step_name}_calibrated_risk")
 
             # Ensure numeric RPN value
             try:
@@ -72,13 +73,17 @@ class FMEAReport:
                 logger.warning(f"[FMEA] Invalid RPN for step {step_name}: {value}")
                 continue
 
-            results.append({
-                "step": step_name,
-                "rpn": rpn_value,
-                "severity": self._safe_int(severity),
-                "occurrence": self._safe_int(occurrence),
-                "detection": self._safe_int(detection)
-            })
+            results.append(
+                {
+                    "step": step_name,
+                    "rpn": rpn_value,
+                    "severity": self._safe_int(severity),
+                    "occurrence": self._safe_int(occurrence),
+                    "detection": self._safe_int(detection),
+                    "normalized_rpn": self._safe_float(normalized),
+                    "calibrated_risk": self._safe_float(calibrated),
+                }
+            )
 
             if len(results) >= self.MAX_STEPS:
                 logger.warning("[FMEA] Step limit reached, truncating report.")
@@ -90,7 +95,7 @@ class FMEAReport:
     # ----------------------------------------------------------------------
     # 2. JSON Export
     # ----------------------------------------------------------------------
-    def to_json(self, file_path: str = None) -> str:
+    def to_json(self, file_path: Optional[str] = None) -> str:
         """
         Return the report as a JSON string.
         Optionally save to a file after safe path validation.
@@ -106,7 +111,8 @@ class FMEAReport:
 
         if file_path:
             if not self._is_safe_path(file_path):
-                raise ValueError(f"Unsafe file path: {file_path}")
+                logger.error(f"[FMEA] Unsafe file path: {file_path}")
+                return report_json
 
             try:
                 with open(file_path, "w", encoding="utf-8") as f:
@@ -132,6 +138,10 @@ class FMEAReport:
             lines.append(f"  Severity: {r.get('severity')}")
             lines.append(f"  Occurrence: {r.get('occurrence')}")
             lines.append(f"  Detection: {r.get('detection')}")
+            if r.get("normalized_rpn") is not None:
+                lines.append(f"  Normalized RPN: {r.get('normalized_rpn')}")
+            if r.get("calibrated_risk") is not None:
+                lines.append(f"  Calibrated Risk: {r.get('calibrated_risk')}")
             lines.append("")
         return "\n".join(lines)
 
@@ -139,7 +149,7 @@ class FMEAReport:
     # 4. Utility Methods
     # ----------------------------------------------------------------------
     @staticmethod
-    def _safe_int(value: Any, default: int = None) -> int:
+    def _safe_int(value: Any, default: Optional[int] = None) -> Optional[int]:
         """Safely cast numeric fields to int within 1–10 range."""
         try:
             num = int(value)
@@ -148,6 +158,27 @@ class FMEAReport:
             return default
         except (ValueError, TypeError):
             return default
+
+    @staticmethod
+    def _safe_float(
+        value: Any,
+        default: Optional[float] = None,
+        minimum: float = 0.0,
+        maximum: float = 1.0,
+        precision: int = 4,
+    ) -> Optional[float]:
+        """Safely cast numeric fields to float within an expected range."""
+        try:
+            num = float(value)
+        except (ValueError, TypeError):
+            return default
+
+        if minimum is not None and num < minimum:
+            return default
+        if maximum is not None and num > maximum:
+            return default
+
+        return round(num, precision)
 
     @staticmethod
     def _sanitize_name(name: str) -> str:
@@ -178,17 +209,21 @@ class FMEAReport:
 
 
 # ----------------------------------------------------------------------
-# Example usage
+# Manual test
 # ----------------------------------------------------------------------
 if __name__ == "__main__":
-    context_example = {
-        "step1_rpn": 160,
+    context = {
+        "step1_rpn": 120,
         "step1_severity": 8,
         "step1_occurrence": 5,
-        "step1_detection": 4,
-        "malicious_../../etc/passwd_rpn": 999,  # should be ignored
+        "step1_detection": 3,
+        "step1_normalized_rpn": 0.25,
+        "step1_calibrated_risk": 0.65,
+        "invalid_step$#_rpn": "bad",  # should be ignored
     }
 
-    report = FMEAReport(context_example)
+    report = FMEAReport(context)
     print(report.to_text())
-    print(report.to_json())  # Safe, in-memory only
+
+    print("\nJSON OUTPUT:")
+    print(report.to_json())
