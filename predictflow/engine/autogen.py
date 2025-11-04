@@ -1,3 +1,10 @@
+"""
+This module securely auto-generates Python action stubs from YAML or BPMN workflow definitions.
+It scans a workflow file for defined actions, sanitizes their names, and creates corresponding
+boilerplate .py files inside the 'actions/' directory. Existing actions are not overwritten,
+ensuring safe, one-time generation of reusable action modules.
+"""
+
 import os
 import re
 import yaml
