@@ -1,0 +1,10 @@
+| Sub-package              | Purpose                                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `engine/`            | Core workflow logic: parses YAML/BPMN, executes flows, handles routing and state.         |
+| `fmea/`              | Computes Failure Mode & Effects Analysis (risk scoring: severity, occurrence, detection). |
+| `confidence/`        | NLP-based confidence evaluation; embeddings, similarity, and confidence metrics.          |
+| `modeler/`           | Workflow authoring utilities: edit, export, and transform process models.                 |
+| `dashboard/`         | Streamlit or FastAPI dashboards for monitoring workflows and metrics.                     |
+| `api/`               | REST API built on FastAPI; exposes endpoints for process, task, and user management.      |
+| `data/`              | Local SQLite DB or sample workflow datasets.                                              |
+| `utils/` / `common/` | Shared helpers like logging, configuration, validation (if present).                      |
