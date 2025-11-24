@@ -1,12 +1,29 @@
 """
+PredictFlow Context Engine — Summary
 PredictFlow Context Engine
 --------------------------
+This module provides a Context Engine that dynamically evaluates
+workflow steps by aggregating multi-dimensional context signals. Effectively, this engine upgrades static workflow scoring by adding
+semantic, real-time, context-aware intelligence around each step.
 
 Purpose:
   - Aggregate multi-dimensional context for workflow steps
   - Enable semantic understanding beyond static FMEA scores
   - Provide context-aware routing and risk adjustment
 
+Core Functions:
+  - Collect context from step metadata and workflow state
+  - Normalize signals across business, temporal, historical,
+    stakeholder, and environmental dimensions
+  - Compute an aggregate context severity score (0–1)
+  - Adjust traditional FMEA RPN values using contextual risk multipliers
+  - Produce human-readable explanations for the adjusted risk
+
+Key Components:
+  - ContextSnapshot: Structured container for all context variables
+  - ContextEngine: Orchestrates extraction, synthesis, caching, and
+    risk adjustment logic
+    
 Context Dimensions:
   - Business: customer value, contract status, strategic alignment
   - Temporal: deadlines, time-of-day patterns, seasonal factors
@@ -452,3 +469,31 @@ if __name__ == "__main__":
     print(f"Base RPN: {adjusted['base_rpn']}")
     print(f"Adjusted RPN: {adjusted['context_adjusted_rpn']}")
     print(f"Explanation: {adjusted['explanation']}")
+
+
+# ----------------------------------------------------------------------
+# FMEA Integration Module Addition
+# ----------------------------------------------------------------------
+# File: predictflow/fmea/integration.py
+
+from typing import Dict, Any
+from predictflow.context.context_engine import ContextEngine
+from predictflow.routing.router import IntelligentRouter, RoutingStrategy
+
+class FMEAIntegration:
+    def __init__(self):
+        self.context_engine = ContextEngine()
+        self.router = IntelligentRouter(strategy=RoutingStrategy.HYBRID)
+    
+    def before_step(self, context: Dict[str, Any], step: Dict[str, Any]) -> None:
+        """Enhanced pre-step with routing decision."""
+        
+        # Collect context
+        workflow_state = context.get('workflow_state', {})
+        step_context = self.context_engine.collect_context(step, workflow_state)
+        
+        # Get FMEA baseline (before actual execution)
+        fmea_preview = compute_rpn(step)
+        
+        # Make routing decision
+        available_assignees = context.get('available_assignees',
