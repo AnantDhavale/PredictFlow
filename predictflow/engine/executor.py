@@ -1,3 +1,9 @@
+"""
+PredictFlow BPMN Executor - Enhanced with Intelligent Routing
+------------------------------------------------------------
+Integrates context-aware resource assignment with workflow execution.
+"""
+
 import importlib
 import time
 import traceback
@@ -8,33 +14,64 @@ from predictflow.engine.scheduler import Scheduler
 from predictflow.engine.autogen import generate_actions_from_yaml
 from predictflow.engine import persistence
 
+# NEW: Import intelligent routing components
+try:
+    from predictflow.routing.resource_router import ResourceRouter, ResourceProfile, RoutingStrategy
+    from predictflow.context.context_engine import ContextEngine
+    ROUTING_AVAILABLE = True
+except ImportError:
+    ROUTING_AVAILABLE = False
+    print("⚠️  Intelligent routing not available - install routing module")
+
 
 class Executor:
     """
-    PredictFlow BPMN Executor (token-based) - Security Hardened
+    PredictFlow BPMN Executor (token-based) with Intelligent Routing
+    
+    Features:
+      - Token-based BPMN execution (existing)
+      - Context-aware resource assignment (NEW)
+      - Risk-based routing and escalation (NEW)
     """
     
-    # Security: Whitelist of allowed condition operators
     SAFE_OPERATORS = {
         '==', '!=', '<', '>', '<=', '>=',
         'and', 'or', 'not', 'in', 'is',
         'True', 'False', 'None'
     }
 
-    def __init__(self, workflow: Dict[str, Any], yaml_path: str = None, auto_generate: bool = True):
+    def __init__(
+        self, 
+        workflow: Dict[str, Any], 
+        yaml_path: str = None, 
+        auto_generate: bool = True,
+        enable_intelligent_routing: bool = True,  # NEW
+        routing_strategy: str = "hybrid"  # NEW
+    ):
         self.wf = workflow
         self.yaml_path = yaml_path
         self.auto_generate = auto_generate
 
         # Runtime state
-        self.context: Dict[str, Any] = {"messages": set()}
+        self.context: Dict[str, Any] = {
+            "messages": set(),
+            "workflow_state": {}  # NEW: for context engine
+        }
         self.metrics: Dict[str, Any] = {}
         self.scheduler = Scheduler(self.context)
 
         # Hooks
         self.hooks = {"before_step": [], "after_step": []}
 
-        # Create action stubs if missing
+        # NEW: Intelligent Routing Components
+        self.enable_intelligent_routing = enable_intelligent_routing and ROUTING_AVAILABLE
+        if self.enable_intelligent_routing:
+            self._init_routing(routing_strategy)
+        else:
+            self.resource_router = None
+            self.context_engine = None
+
+        # Auto-generate actions
         if self.auto_generate and self.yaml_path:
             try:
                 print("Checking and generating missing actions from YAML/BPMN...")
@@ -59,7 +96,78 @@ class Executor:
         self.join_seen: Dict[str, Set[str]] = {}
 
     # -----------------------------
-    # Public
+    # NEW: Routing Initialization
+    # -----------------------------
+    def _init_routing(self, strategy: str):
+        """Initialize intelligent routing components."""
+        try:
+            strategy_map = {
+                "hybrid": RoutingStrategy.HYBRID,
+                "risk": RoutingStrategy.RISK_BASED,
+                "skill": RoutingStrategy.SKILL_MATCH,
+                "load": RoutingStrategy.LOAD_BALANCE
+            }
+            
+            self.resource_router = ResourceRouter(
+                strategy=strategy_map.get(strategy.lower(), RoutingStrategy.HYBRID)
+            )
+            self.context_engine = ContextEngine()
+            
+            print(f"✓ Intelligent routing enabled (strategy: {strategy})")
+        except Exception as e:
+            print(f"⚠️  Failed to initialize routing: {e}")
+            self.resource_router = None
+            self.context_engine = None
+
+    # NEW: Resource Management
+    def register_resource(
+        self, 
+        resource_id: str, 
+        seniority: float = 0.5,
+        authority: float = 0.5,
+        skills: List[str] = None,
+        workload: float = 0.5
+    ):
+        """
+        Register an assignee/resource for intelligent routing.
+        
+        Args:
+            resource_id: Unique identifier (e.g., "alice", "bob")
+            seniority: 0-1, experience level
+            authority: 0-1, decision-making power
+            skills: List of skill tags
+            workload: 0-1, current load
+        """
+        if not self.resource_router:
+            print("⚠️  Routing not enabled, resource registration ignored")
+            return
+        
+        profile = ResourceProfile(
+            resource_id=resource_id,
+            seniority_level=seniority,
+            authority_level=authority,
+            skills=skills or [],
+            current_workload=workload
+        )
+        
+        self.resource_router.register_resource(resource_id, profile)
+        print(f"✓ Registered resource: {resource_id}")
+
+    def set_workflow_state(self, **kwargs):
+        """
+        Set workflow-level context for intelligent routing.
+        
+        Example:
+            executor.set_workflow_state(
+                customer_tier='enterprise',
+                deadline='2024-12-01T10:00:00Z',
+                system_health=0.95
+            )
+        """
+        self.context['workflow_state'].update(kwargs)
+
+    # -----------------------------
+    # Public Execution
     # -----------------------------
     def run(self):
         run_id = persistence.log_run_start(self.wf.get("name", "Unnamed Workflow"))
@@ -85,13 +193,17 @@ class Executor:
         
         self._show_summary()
         self._compute_critical_path()
+        
+        # NEW: Show routing analytics
+        if self.resource_router:
+            self._show_routing_summary()
 
     # -----------------------------
-    # Token traversal
+    # Token Traversal
     # -----------------------------
     def _run_token(self, node_id: str):
         queue: List[str] = [node_id]
-        max_iterations = 1000  # ✅ Prevent infinite loops
+        max_iterations = 1000
         iterations = 0
 
         while queue and iterations < max_iterations:
@@ -125,21 +237,25 @@ class Executor:
                 queue.append(bn)
         
         if iterations >= max_iterations:
-            raise RuntimeError("Workflow exceeded maximum iteration limit (possible infinite loop)")
+            raise RuntimeError("Workflow exceeded maximum iteration limit")
 
     # -----------------------------
-    # Execution of a single node
+    # Execution of Single Node (ENHANCED)
     # -----------------------------
     def _execute_step(self, step: Dict[str, Any]):
         sid = step["id"]
         stype = step.get("type", "task")
         action = step.get("action") or sid
         
-        # ✅ Validate step ID
         if not self._is_valid_identifier(sid):
             raise ValueError(f"Invalid step ID: {sid}")
         
-        print(f"\nExecuting step: {sid} ({action}) [{stype}]")
+        # NEW: Intelligent resource assignment
+        if self.enable_intelligent_routing:
+            step = self._assign_resource(step)
+        
+        assignee = step.get('assignee', 'unassigned')
+        print(f"\nExecuting step: {sid} ({action}) [{stype}] → Assignee: {assignee}")
 
         self._run_hooks("before_step", step)
 
@@ -156,8 +272,14 @@ class Executor:
             self._run_action(action, step)
             self._score(step)
 
+            # NEW: Update resource workload after execution
+            if self.resource_router and assignee != 'unassigned':
+                routing_data = step.get('routing_decision', {})
+                current_load = routing_data.get('workload_score', 0.5)
+                self.resource_router.update_workload(assignee, current_load + 0.1)
+
             persistence.save_state(self.wf["name"], {
-                "join_seen": {k: list(v) for k, v in self.join_seen.items()},  # ✅ Serialize sets
+                "join_seen": {k: list(v) for k, v in self.join_seen.items()},
                 "context": self.context,
                 "metrics": self.metrics
             })
@@ -171,16 +293,79 @@ class Executor:
         self._run_hooks("after_step", step)
         time.sleep(0.1)
 
+    # -----------------------------
+    # NEW: Intelligent Resource Assignment
+    # -----------------------------
+    def _assign_resource(self, step: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Apply intelligent routing to determine step assignee.
+        
+        Returns:
+            Step dict enriched with assignee and routing metadata
+        """
+        # If step has explicit assignee (not 'auto'), respect it
+        if step.get('assignee') and step.get('assignee') != 'auto':
+            return step
+        
+        # Get available assignees
+        available = list(self.resource_router.resource_pool.keys())
+        if not available:
+            print("⚠️  No resources registered, using default assignee")
+            step['assignee'] = 'default'
+            return step
+        
+        try:
+            # Collect context
+            context_snapshot = self.context_engine.collect_context(
+                step, 
+                self.context.get('workflow_state', {})
+            )
+            
+            # Compute FMEA risk
+            from predictflow.fmea.analyzer import compute_rpn
+            fmea_result = compute_rpn(step)
+            
+            # Context-aware risk adjustment
+            adjusted_risk = self.context_engine.adjust_rpn_with_context(
+                fmea_result['rpn'],
+                context_snapshot
+            )
+            
+            # Intelligent routing decision
+            routing_decision = self.resource_router.route_step(
+                step,
+                context_snapshot,
+                adjusted_risk,
+                available
+            )
+            
+            # Enrich step
+            step['assignee'] = routing_decision.assignee
+            step['routing_decision'] = routing_decision.to_dict()
+            step['context_snapshot'] = context_snapshot.to_dict()
+            step['fmea_adjusted'] = adjusted_risk
+            
+            # Log routing decision
+            if routing_decision.escalated:
+                print(f"⚠️  ESCALATED: {routing_decision.explanation}")
+            else:
+                print(f"ℹ️  Routing: {routing_decision.explanation}")
+        
+        except Exception as e:
+            print(f"⚠️  Routing failed: {e}, using default assignee")
+            step['assignee'] = available[0] if available else 'default'
+        
+        return step
+
+    # -----------------------------
+    # Action Execution
+    # -----------------------------
     def _run_action(self, action_name: str, step: Dict[str, Any]):
-        """
-        ✅ SECURITY FIX: Validate action name before import
-        """
-        # Validate action name
+        """Execute action with security validation."""
         if not self._is_valid_identifier(action_name):
             print(f"❌ Invalid action name: {action_name}")
             return
         
-        # Prevent path traversal
         if '/' in action_name or '\\' in action_name or '..' in action_name:
             print(f"❌ Action name contains invalid characters: {action_name}")
             return
@@ -191,8 +376,7 @@ class Executor:
                 print(f"Running action: {action_name}")
                 result = mod.run(self.context, step)
                 if isinstance(result, dict):
-                    # ✅ Validate result before merging
-                    if len(str(result)) > 100000:  # 100KB limit
+                    if len(str(result)) > 100000:
                         print("❌ Action result too large")
                         return
                     self.context.update(result)
@@ -205,9 +389,10 @@ class Executor:
             traceback.print_exc()
 
     # -----------------------------
-    # Gateways & Routing
+    # Gateways & Routing (Workflow Graph)
     # -----------------------------
     def _next_nodes(self, step: Dict[str, Any]) -> List[str]:
+        """Determine next nodes in workflow graph."""
         sid = step["id"]
         stype = step.get("type", "task")
         outs = self.out_edges.get(sid, [])
@@ -224,7 +409,6 @@ class Executor:
             return matched or [f["targetRef"] for f in outs]
 
         if stype == "parallelGateway":
-            # ✅ Limit parallel branches
             max_parallel = 10
             targets = [f["targetRef"] for f in outs[:max_parallel]]
             if len(outs) > max_parallel:
@@ -251,7 +435,7 @@ class Executor:
             return len(seen.intersection(incoming_from)) >= 1
 
     # -----------------------------
-    # Boundary events
+    # Boundary Events
     # -----------------------------
     def _boundary_targets_for_host(self, host_id: str) -> List[str]:
         targets: List[str] = []
@@ -265,49 +449,35 @@ class Executor:
         return targets
 
     # -----------------------------
-    # ✅ SECURITY FIX: Safe Condition Evaluation
+    # Safe Condition Evaluation
     # -----------------------------
     def _cond_true(self, expr: Optional[str]) -> bool:
-        """
-        Safely evaluate conditions without allowing arbitrary code execution.
-        
-        Supports simple comparisons like:
-        - context['status'] == 'approved'
-        - context['amount'] > 1000
-        - context['approved'] and context['verified']
-        """
+        """Safely evaluate conditions."""
         if not expr:
             return False
         
         try:
-            # Remove whitespace
             expr = expr.strip()
             
-            # Check for dangerous patterns
             dangerous_patterns = [
                 '__import__', 'eval', 'exec', 'compile', 'open',
                 'file', 'input', 'raw_input', 'execfile',
                 'reload', '__builtins__', 'globals', 'locals',
-                'vars', 'dir', 'help', 'copyright', 'credits',
-                'license', 'quit', 'exit', 'delattr', 'setattr',
-                'getattr', 'hasattr', 'callable', 'isinstance',
-                'issubclass', 'type', 'classmethod', 'staticmethod'
+                'vars', 'dir', 'help', 'delattr', 'setattr',
+                'getattr', 'hasattr'
             ]
             
             expr_lower = expr.lower()
             for pattern in dangerous_patterns:
                 if pattern in expr_lower:
-                    print(f"❌ Blocked dangerous pattern in condition: {pattern}")
+                    print(f"❌ Blocked dangerous pattern: {pattern}")
                     return False
             
-            # Only allow simple context variable access
-            # Build a safe evaluation environment
             safe_context = {
                 k: v for k, v in self.context.items()
                 if isinstance(v, (str, int, float, bool, type(None)))
             }
             
-            # Restricted namespace - no builtins, no imports
             restricted_namespace = {
                 '__builtins__': {},
                 'True': True,
@@ -316,7 +486,6 @@ class Executor:
                 'context': safe_context
             }
             
-            # Evaluate with timeout protection
             result = eval(expr, restricted_namespace, {})
             return bool(result)
             
@@ -325,42 +494,27 @@ class Executor:
             return False
 
     def _is_valid_identifier(self, name: str) -> bool:
-        """
-        ✅ Validate that a name is a safe identifier.
-        Allows: letters, numbers, underscores, hyphens
-        """
-        if not name:
+        """Validate identifier safety."""
+        if not name or len(name) > 255:
             return False
-        
-        # Max length check
-        if len(name) > 255:
-            return False
-        
-        # Pattern check: alphanumeric, underscore, hyphen only
         pattern = r'^[a-zA-Z0-9_-]+$'
         return bool(re.match(pattern, name))
 
     # -----------------------------
-    # Conditions, timers, messages, human tasks
+    # Event Handlers
     # -----------------------------
     def _handle_timer_event(self, step: Dict[str, Any]):
         timer_raw = (step.get("timer") or {}).get("raw", "")
-        
-        # ✅ Limit timer duration to prevent DoS
-        max_wait = 3600  # 1 hour max
+        max_wait = 3600
         wait_time = min(self._parse_timer_duration(timer_raw), max_wait)
-        
         if wait_time > 0:
             print(f"Timer wait ({wait_time}s)")
             time.sleep(wait_time)
 
     def _parse_timer_duration(self, raw: str) -> float:
-        """Parse ISO 8601 duration or simple duration string."""
         if not raw:
-            return 2.0  # Default
-        
+            return 2.0
         try:
-            # Simple parsing for PT10S format
             if raw.startswith('PT') and raw.endswith('S'):
                 return float(raw[2:-1])
             elif raw.endswith('s'):
@@ -371,22 +525,22 @@ class Executor:
                 return float(raw[:-1]) * 3600
         except:
             pass
-        
-        return 2.0  # Fallback
+        return 2.0
 
     def _handle_message_wait(self, step: Dict[str, Any]):
         key = step["id"]
-        print(f"Waiting for message at '{key}' (stub). Use API /messages/correlate to add it.")
+        print(f"Waiting for message at '{key}' (stub)")
 
     def _handle_user_task(self, step: Dict[str, Any]):
         task = {
             "id": step["id"],
             "lane": step.get("lane"),
+            "assignee": step.get("assignee", "unassigned"),  # NEW
             "description": step.get("description"),
             "status": "pending"
         }
         persistence.save_user_task(task)
-        print(f"[UserTask] Created: {task['id']} (lane={task['lane']})")
+        print(f"[UserTask] Created: {task['id']} (assignee={task['assignee']})")
 
     # -----------------------------
     # Scoring
@@ -408,11 +562,16 @@ class Executor:
             e = get_vector(desc) if desc else None
         except Exception:
             e = None
+        
+        # NEW: Include routing metadata in metrics
         self.metrics[step["id"]] = {
             "rpn": r,
             "confidence": c,
             "embedding": e,
-            "lane": step.get("lane")
+            "lane": step.get("lane"),
+            "assignee": step.get("assignee"),
+            "routing_confidence": step.get("routing_decision", {}).get("confidence", 0),
+            "escalated": step.get("routing_decision", {}).get("escalated", False)
         }
 
     # -----------------------------
@@ -436,7 +595,25 @@ class Executor:
     def _show_summary(self):
         print("\nWorkflow Metrics Summary:")
         for sid, m in self.metrics.items():
-            print(f"  • {sid}: RPN={m.get('rpn')}, Confidence={m.get('confidence')}")
+            assignee = m.get('assignee', 'N/A')
+            print(f"  • {sid} [{assignee}]: RPN={m.get('rpn')}, Confidence={m.get('confidence')}")
+
+    def _show_routing_summary(self):
+        """NEW: Show routing analytics."""
+        if not self.resource_router:
+            return
+        
+        analytics = self.resource_router.get_routing_analytics()
+        print("\nIntelligent Routing Summary:")
+        print(f"  Total Routing Decisions: {analytics.get('total_routes', 0)}")
+        print(f"  Escalations: {analytics.get('escalations', 0)}")
+        print(f"  Avg Routing Confidence: {analytics.get('avg_confidence', 0):.2f}")
+        
+        strategies = analytics.get('strategy_distribution', {})
+        if strategies:
+            print("  Strategy Distribution:")
+            for strategy, count in strategies.items():
+                print(f"    - {strategy}: {count}")
 
     def _compute_critical_path(self):
         if not self.metrics:
