@@ -25,6 +25,7 @@ It provides answers to questions, such as (but not limited too, I am evolving th
 “Where is data confidence lowest?”
 “Which branch is the real critical path?”
 “Can I predict future bottlenecks?”
+"How do I route a flow on the basis of the business / temporal / historical context?"
 
 What it adds to a BPMS : 
 
