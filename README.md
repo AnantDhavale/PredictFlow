@@ -46,7 +46,6 @@ Phase 1 : Intelligence Layer (Current state)
 Phase 2 : Light Orchestrator Mode (Scheduling, event-triggers)
 Phase 3 : Full BPMS Mode (BPMN UI and interface)
 
-====
 How the "Adjunct Layer" works, here's an example:
 
 Camunda: "Invoice workflow step 'Manager Review' is pending"
@@ -64,7 +63,7 @@ PredictFlow returns:
   }
   ↓
 Camunda: Assigns to experienced_manager based on prediction
-===
+
 
 
 
